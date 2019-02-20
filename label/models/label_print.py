@@ -24,6 +24,7 @@ class LabelPrint(models.Model):
     model_list = fields.Char('Model List', size=256)
     paperformat_id = fields.Many2one('report.paperformat', string='Paper Format')
     single_page = fields.Boolean(string='Single page label')
+    report_id = fields.Many2one('ir.actions.report.xml', string='Report')
 
     @api.onchange('model_id')
     def onchange_model(self):
@@ -39,6 +40,36 @@ class LabelPrint(models.Model):
                     if model_ids:
                         model_list.append(key)
         self.model_list = model_list
+
+    @api.onchange('paperformat_id')
+    def onchange_paperformat_id(self):
+        if self.report_id:
+            self.report_id.sudo().paperformat_id = self.paperformat_id
+
+    @api.model
+    def create(self, vals):
+        label = super(LabelPrint, self).create(vals)
+        label.report_id = label.create_label_report()
+        return label
+
+    def create_label_report(self):
+        paperformat_id = None
+        if self.paperformat_id:
+            paperformat_id = self.paperformat_id.id
+
+        report = None
+        if self.report_id:
+            report = self.report_id.id
+
+        report_id = self.env['ir.actions.report.xml'].create({
+            'name': 'Label {}'.format(self.name),
+            'model': 'label.config',
+            'report_type': 'qweb-pdf',
+            'paperformat_id': paperformat_id,
+            'report_id': report,
+            'report_name': 'label.report_label',
+        })
+        return report_id
 
     @api.multi
     def create_action(self):
@@ -79,6 +110,13 @@ class LabelPrint(models.Model):
             if template.ref_ir_value.id:
                 template.ref_ir_value.unlink()
         return True
+
+    @api.multi
+    def unlink(self):
+        for label in self:
+            if label.report_id:
+                label.report_id.unlink()
+        return super(LabelPrint, self).unlink()
 
 
 class LabelPrintField(models.Model):

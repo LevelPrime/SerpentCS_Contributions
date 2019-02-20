@@ -7,10 +7,12 @@ class Report(models.Model):
 
     @api.model
     def _get_report_from_name(self, report_name):
-        report = super(Report, self)._get_report_from_name(report_name)
-        if report:
-            paperformat_id = self._context.get('paperformat_id', None)
-            if paperformat_id:
-                report.paperformat_id = paperformat_id
+        if self._context.get('report_id', None):
+            report_obj = self.env['ir.actions.report.xml']
+            context = self.env['res.users'].context_get()
+            report = report_obj.with_context(context).browse(
+                int(self._context.get('report_id')))
+        else:
+            report = super(Report, self)._get_report_from_name(report_name)
 
         return report

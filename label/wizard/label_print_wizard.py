@@ -23,6 +23,7 @@ class LabelPrintWizard(models.TransientModel):
                 self._context.get('label_print'))
             result['paperformat_id'] = label_print_data.paperformat_id.id or False
             result['single_page'] = label_print_data.single_page
+            result['report_id'] = label_print_data.report_id.id or False
             for field in label_print_data.field_ids:
                 if field.type == 'image':
                     result['is_image'] = True
@@ -41,6 +42,7 @@ class LabelPrintWizard(models.TransientModel):
     brand_id = fields.Many2one('label.brand', 'Brand Name', required=True)
     paperformat_id = fields.Many2one('report.paperformat', string='Paper Format')
     single_page = fields.Boolean(string='Single page label')
+    report_id = fields.Many2one('ir.actions.report.xml', string='Report')
 
     @api.multi
     def print_report(self):
@@ -93,9 +95,18 @@ class LabelPrintWizard(models.TransientModel):
             'form': datas
         }
 
-        action = self.env['report'].get_action(self, 'label.report_label',
-                                             data=data)
-        if self.paperformat_id:
-            action['context']['paperformat_id'] = self.paperformat_id.id
-
+        if self.report_id:
+            action = {
+                'context': {
+                    'report_id': self.report_id.id
+                },
+                'type': 'ir.actions.report.xml',
+                'report_name': self.report_id.report_name,
+                'report_type': self.report_id.report_type,
+                'report_file': self.report_id.report_file,
+                'name': self.report_id.name,
+            }
+        else:
+            action = self.env['report'].get_action(self, 'label.report_label',
+                                                    data=data)
         return action
